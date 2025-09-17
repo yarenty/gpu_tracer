@@ -139,8 +139,22 @@ impl App<'_> {
         
         // Update GPU data if available
         if self.gpu_available {
-            if let Ok(new_readings) = self.gpu_monitor.get_gpu_info() {
-                self.gpu_readings = new_readings;
+            match self.gpu_monitor.get_gpu_info() {
+                Ok(new_readings) => {
+                    self.gpu_readings = new_readings;
+                    // Debug: Log GPU data to stderr
+                    eprintln!("GPU Data Update - GPUs: {}, First GPU: {} - Memory: {}/{}MB, Utilization: {}% GPU, {}% Memory", 
+                        self.gpu_readings.gpus.len(),
+                        if !self.gpu_readings.gpus.is_empty() { &self.gpu_readings.gpus[0].name } else { "None" },
+                        if !self.gpu_readings.gpus.is_empty() { self.gpu_readings.gpus[0].memory.used } else { 0 },
+                        if !self.gpu_readings.gpus.is_empty() { self.gpu_readings.gpus[0].memory.total } else { 0 },
+                        if !self.gpu_readings.gpus.is_empty() { self.gpu_readings.gpus[0].utilization.gpu } else { 0 },
+                        if !self.gpu_readings.gpus.is_empty() { self.gpu_readings.gpus[0].utilization.memory } else { 0 }
+                    );
+                }
+                Err(e) => {
+                    eprintln!("GPU data collection error: {}", e);
+                }
             }
         }
         
