@@ -49,6 +49,10 @@ ctrlc = "3"
 name = "tracer"
 path = "src/tracer.rs"
 
+[[example]]
+name = "gpu_demo"
+path = "examples/gpu_demo.rs"
+
 
 # by default it gets 16M - debug, 3.3M - release, with this: 1.3M
 [profile.release]
