@@ -96,7 +96,9 @@ impl NvidiaSmiMonitor {
 
         if !output.status.success() {
             let error_msg = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("nvidia-smi command failed: {}", error_msg));
+            let stdout_msg = String::from_utf8_lossy(&output.stdout);
+            return Err(format!("nvidia-smi command failed: stderr='{}', stdout='{}', exit_code={:?}", 
+                error_msg, stdout_msg, output.status.code()));
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())

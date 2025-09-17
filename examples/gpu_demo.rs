@@ -1,4 +1,4 @@
-use gpu_tracer::trace::datastreams::{NvidiaSmiMonitor, GpuReadings};
+use gpu_tracer::{NvidiaSmiMonitor, GpuReadings};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("GPU Tracer Demo - nvidia-smi Integration");
@@ -32,6 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     
     // Get detailed GPU information
+    println!("\n🔍 Fetching detailed GPU information...");
     match monitor.get_gpu_info() {
         Ok(readings) => {
             println!("\n📊 GPU Information:");
