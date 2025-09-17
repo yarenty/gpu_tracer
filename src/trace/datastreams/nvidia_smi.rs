@@ -147,16 +147,16 @@ impl NvidiaSmiMonitor {
 
         // Parse CSV output
         let lines: Vec<&str> = output.trim().lines().collect();
-        eprintln!("nvidia-smi output lines: {}", lines.len());
+        log::trace!("nvidia-smi output lines: {}", lines.len());
         for (i, line) in lines.iter().enumerate() {
-            eprintln!("Line {}: {}", i, line);
+            log::trace!("Line {}: {}", i, line);
             match self.parse_gpu_line(line, gpu_query.len()) {
                 Ok(gpu_info) => {
-                    eprintln!("Successfully parsed GPU {}: Memory {}/{}MB", gpu_info.index, gpu_info.memory.used, gpu_info.memory.total);
+                    log::debug!("Successfully parsed GPU {}: Memory {}/{}MB", gpu_info.index, gpu_info.memory.used, gpu_info.memory.total);
                     readings.gpus.push(gpu_info);
                 }
                 Err(e) => {
-                    eprintln!("Failed to parse GPU line {}: {}", i, e);
+                    log::error!("Failed to parse GPU line {}: {}", i, e);
                 }
             }
         }
@@ -210,7 +210,7 @@ impl NvidiaSmiMonitor {
         let memory_free_field = field_iter.next().map_or("0", |v| v);
         let memory_reserved_field = field_iter.next().map_or("0", |v| v);
         
-        eprintln!("Memory fields: total='{}', used='{}', free='{}', reserved='{}'", 
+        log::trace!("Memory fields: total='{}', used='{}', free='{}', reserved='{}'", 
                   memory_total_field, memory_used_field, memory_free_field, memory_reserved_field);
         
         let memory_total = parse_optional_u32(memory_total_field).unwrap_or(0) as u64;
