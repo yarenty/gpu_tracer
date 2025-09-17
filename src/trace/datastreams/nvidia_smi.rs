@@ -350,9 +350,9 @@ impl NvidiaSmiMonitor {
 
     /// Get GPU processes
     fn get_gpu_processes(&self) -> Result<Vec<GpuProcess>, String> {
-        // Use --query-apps to get all GPU processes (both graphics and compute)
+        // Use the standard GPU query with process information
         let output = self.execute_command(&[
-            "--query-apps=pid,process_name,gpu_uuid,used_memory",
+            "--query-gpu=index,processes.pid,processes.name,processes.memory.used",
             "--format=csv,noheader,nounits"
         ])?;
 
@@ -368,24 +368,55 @@ impl NvidiaSmiMonitor {
             
             let fields: Vec<&str> = line.split(',').collect();
             log::trace!("Process fields: {:?}", fields);
+            
             if fields.len() >= 4 {
-                if let (Ok(pid), Ok(used_memory)) = (
-                    fields[0].trim().parse::<u32>(),
-                    fields[3].trim().parse::<u64>()
-                ) {
-                    let process = GpuProcess {
-                        pid,
-                        process_name: fields[1].trim().to_string(),
-                        gpu_uuid: fields[2].trim().to_string(),
-                        used_memory,
-                        gpu_index: 0, // Will be updated later
-                    };
-                    log::debug!("Found GPU process: PID {}, Name: {}, Memory: {}MB", 
-                               process.pid, process.process_name, process.used_memory);
-                    processes.push(process);
+                // Parse GPU index
+                let gpu_index = fields[0].trim().parse::<u32>().unwrap_or(0);
+                
+                // Parse process information - multiple processes may be separated by ';'
+                let pid_str = fields[1].trim();
+                let name_str = fields[2].trim();
+                let memory_str = fields[3].trim();
+                
+                // Split multiple processes if present (separated by ';')
+                let pids: Vec<&str> = if pid_str.contains(';') {
+                    pid_str.split(';').collect()
                 } else {
-                    log::warn!("Failed to parse process line {}: pid='{}', memory='{}'", 
-                              i, fields[0], fields[3]);
+                    vec![pid_str]
+                };
+                
+                let names: Vec<&str> = if name_str.contains(';') {
+                    name_str.split(';').collect()
+                } else {
+                    vec![name_str]
+                };
+                
+                let memories: Vec<&str> = if memory_str.contains(';') {
+                    memory_str.split(';').collect()
+                } else {
+                    vec![memory_str]
+                };
+                
+                // Create process entries for each process
+                for j in 0..pids.len().min(names.len()).min(memories.len()) {
+                    if let (Ok(pid), Ok(used_memory)) = (
+                        pids[j].trim().parse::<u32>(),
+                        memories[j].trim().parse::<u64>()
+                    ) {
+                        let process = GpuProcess {
+                            pid,
+                            process_name: names[j].trim().to_string(),
+                            gpu_uuid: String::new(), // Not available in this query
+                            used_memory,
+                            gpu_index,
+                        };
+                        log::debug!("Found GPU process: GPU {}, PID {}, Name: {}, Memory: {}MB", 
+                                   gpu_index, process.pid, process.process_name, process.used_memory);
+                        processes.push(process);
+                    } else {
+                        log::warn!("Failed to parse process {} on line {}: pid='{}', memory='{}'", 
+                                  j, i, pids[j], memories[j]);
+                    }
                 }
             } else {
                 log::warn!("Invalid process line {}: expected 4 fields, got {}", i, fields.len());
