@@ -350,10 +350,9 @@ impl NvidiaSmiMonitor {
 
     /// Get GPU processes
     fn get_gpu_processes(&self) -> Result<Vec<GpuProcess>, String> {
-        // Use the standard GPU query with process information
+        // Use nvidia-smi pmon to get process information
         let output = self.execute_command(&[
-            "--query-gpu=index,processes.pid,processes.name,processes.memory.used",
-            "--format=csv,noheader,nounits"
+            "pmon", "-c", "1", "-s", "u"
         ])?;
 
         let mut processes = Vec::new();
@@ -362,64 +361,51 @@ impl NvidiaSmiMonitor {
         log::trace!("GPU processes query returned {} lines", lines.len());
         for (i, line) in lines.iter().enumerate() {
             log::trace!("Process line {}: {}", i, line);
-            if line.is_empty() {
+            
+            // Skip header lines and empty lines
+            if line.is_empty() || line.starts_with('#') || line.trim().is_empty() {
                 continue;
             }
             
-            let fields: Vec<&str> = line.split(',').collect();
+            // Parse space-separated fields from pmon output
+            // Format: "    0       2851     G      -      -      -      -      -      -    Xorg"
+            let fields: Vec<&str> = line.split_whitespace().collect();
             log::trace!("Process fields: {:?}", fields);
             
-            if fields.len() >= 4 {
-                // Parse GPU index
-                let gpu_index = fields[0].trim().parse::<u32>().unwrap_or(0);
-                
-                // Parse process information - multiple processes may be separated by ';'
-                let pid_str = fields[1].trim();
-                let name_str = fields[2].trim();
-                let memory_str = fields[3].trim();
-                
-                // Split multiple processes if present (separated by ';')
-                let pids: Vec<&str> = if pid_str.contains(';') {
-                    pid_str.split(';').collect()
-                } else {
-                    vec![pid_str]
-                };
-                
-                let names: Vec<&str> = if name_str.contains(';') {
-                    name_str.split(';').collect()
-                } else {
-                    vec![name_str]
-                };
-                
-                let memories: Vec<&str> = if memory_str.contains(';') {
-                    memory_str.split(';').collect()
-                } else {
-                    vec![memory_str]
-                };
-                
-                // Create process entries for each process
-                for j in 0..pids.len().min(names.len()).min(memories.len()) {
-                    if let (Ok(pid), Ok(used_memory)) = (
-                        pids[j].trim().parse::<u32>(),
-                        memories[j].trim().parse::<u64>()
-                    ) {
+            if fields.len() >= 9 {
+                // Parse GPU index (first field)
+                if let Ok(gpu_index) = fields[0].parse::<u32>() {
+                    // Parse PID (second field)
+                    if let Ok(pid) = fields[1].parse::<u32>() {
+                        // Process type is in third field (G for Graphics, C for Compute)
+                        let process_type = fields[2];
+                        
+                        // Process name is the last field (everything after the utilization fields)
+                        let process_name = fields[8..].join(" ").trim().to_string();
+                        
+                        // For now, we'll set memory to 0 since pmon doesn't show memory usage
+                        // We could potentially get this from a separate query if needed
+                        let used_memory = 0u64;
+                        
                         let process = GpuProcess {
                             pid,
-                            process_name: names[j].trim().to_string(),
-                            gpu_uuid: String::new(), // Not available in this query
+                            process_name,
+                            gpu_uuid: String::new(), // Not available in pmon output
                             used_memory,
                             gpu_index,
                         };
-                        log::debug!("Found GPU process: GPU {}, PID {}, Name: {}, Memory: {}MB", 
-                                   gpu_index, process.pid, process.process_name, process.used_memory);
+                        
+                        log::debug!("Found GPU process: GPU {}, PID {}, Name: {}, Type: {}", 
+                                   gpu_index, process.pid, process.process_name, process_type);
                         processes.push(process);
                     } else {
-                        log::warn!("Failed to parse process {} on line {}: pid='{}', memory='{}'", 
-                                  j, i, pids[j], memories[j]);
+                        log::warn!("Failed to parse PID on line {}: '{}'", i, fields[1]);
                     }
+                } else {
+                    log::warn!("Failed to parse GPU index on line {}: '{}'", i, fields[0]);
                 }
             } else {
-                log::warn!("Invalid process line {}: expected 4 fields, got {}", i, fields.len());
+                log::warn!("Invalid process line {}: expected at least 9 fields, got {}", i, fields.len());
             }
         }
 
