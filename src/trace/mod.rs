@@ -2,11 +2,11 @@ use serde_derive::{Deserialize, Serialize};
 
 pub mod app;
 pub mod cmd;
+pub mod datastreams;
 pub mod event;
 pub mod ui;
 
 mod app_data_streams;
-mod datastreams;
 
 /// CSV output record for CPU monitoring (legacy)
 #[derive(Debug, Serialize, Deserialize, Default)]

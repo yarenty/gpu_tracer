@@ -17,6 +17,10 @@ keywords = [
     "observability"
 ]
 
+[lib]
+name = "gpu_tracer"
+path = "src/lib.rs"
+
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
