@@ -181,15 +181,18 @@ impl NvidiaSmiMonitor {
         
         // Helper function to parse optional numeric values
         let parse_optional_u32 = |s: &str| -> Option<u32> {
-            if s.is_empty() || s == "N/A" { None } else { s.parse().ok() }
+            let trimmed = s.trim();
+            if trimmed.is_empty() || trimmed == "N/A" || trimmed == "[N/A]" { None } else { trimmed.parse().ok() }
         };
         
         let parse_optional_f32 = |s: &str| -> Option<f32> {
-            if s.is_empty() || s == "N/A" { None } else { s.parse().ok() }
+            let trimmed = s.trim();
+            if trimmed.is_empty() || trimmed == "N/A" || trimmed == "[N/A]" { None } else { trimmed.parse().ok() }
         };
         
         let parse_optional_i32 = |s: &str| -> Option<i32> {
-            if s.is_empty() || s == "N/A" { None } else { s.parse().ok() }
+            let trimmed = s.trim();
+            if trimmed.is_empty() || trimmed == "N/A" || trimmed == "[N/A]" { None } else { trimmed.parse().ok() }
         };
 
         let timestamp = field_iter.next().map_or("", |v| v).to_string();
