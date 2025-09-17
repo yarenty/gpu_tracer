@@ -122,7 +122,7 @@ impl NvidiaSmiMonitor {
             return Ok(readings);
         }
 
-        // Query all GPU metrics
+        // Query all GPU metrics (removed invalid fields)
         let gpu_query = [
             "timestamp", "name", "uuid", "pci.bus_id", "driver_version", "vbios_version",
             "compute_cap", "pstate", "memory.total", "memory.used", "memory.free", "memory.reserved",
@@ -134,8 +134,8 @@ impl NvidiaSmiMonitor {
             "clocks.current.memory", "clocks.current.video", "clocks.max.graphics", "clocks.max.sm",
             "clocks.max.memory", "clocks.applications.graphics", "clocks.applications.memory",
             "ecc.mode.current", "ecc.mode.pending", "pcie.link.gen.current", "pcie.link.gen.max",
-            "pcie.link.width.current", "pcie.link.width.max", "pcie.domain", "pcie.bus", "pcie.device",
-            "fan.speed", "display_mode", "persistence_mode", "compute_mode", "index"
+            "pcie.link.width.current", "pcie.link.width.max", "fan.speed", "display_mode", 
+            "persistence_mode", "compute_mode", "index"
         ];
 
         let query_str = gpu_query.join(",");
@@ -238,14 +238,11 @@ impl NvidiaSmiMonitor {
         let ecc_mode_current = field_iter.next().map_or("", |v| v).to_string();
         let ecc_mode_pending = field_iter.next().map_or("", |v| v).to_string();
         
-        // PCIe fields
+        // PCIe fields (removed domain, bus, device as they're not valid query fields)
         let pcie_gen_current = parse_optional_u32(field_iter.next().map_or("", |v| v));
         let pcie_gen_max = parse_optional_u32(field_iter.next().map_or("", |v| v));
         let pcie_width_current = parse_optional_u32(field_iter.next().map_or("", |v| v));
         let pcie_width_max = parse_optional_u32(field_iter.next().map_or("", |v| v));
-        let pcie_domain = parse_optional_u32(field_iter.next().map_or("", |v| v));
-        let pcie_bus = parse_optional_u32(field_iter.next().map_or("", |v| v));
-        let pcie_device = parse_optional_u32(field_iter.next().map_or("", |v| v));
         
         // Other fields
         let fan_speed = parse_optional_u32(field_iter.next().map_or("", |v| v));
@@ -320,9 +317,9 @@ impl NvidiaSmiMonitor {
                 gen_max: pcie_gen_max,
                 width_current: pcie_width_current,
                 width_max: pcie_width_max,
-                domain: pcie_domain,
-                bus: pcie_bus,
-                device: pcie_device,
+                domain: None, // Not available via nvidia-smi query
+                bus: None,    // Not available via nvidia-smi query
+                device: None, // Not available via nvidia-smi query
             },
             fan_speed,
             display_mode,
