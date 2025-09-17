@@ -147,9 +147,17 @@ impl NvidiaSmiMonitor {
 
         // Parse CSV output
         let lines: Vec<&str> = output.trim().lines().collect();
-        for line in lines {
-            if let Ok(gpu_info) = self.parse_gpu_line(line, gpu_query.len()) {
-                readings.gpus.push(gpu_info);
+        eprintln!("nvidia-smi output lines: {}", lines.len());
+        for (i, line) in lines.iter().enumerate() {
+            eprintln!("Line {}: {}", i, line);
+            match self.parse_gpu_line(line, gpu_query.len()) {
+                Ok(gpu_info) => {
+                    eprintln!("Successfully parsed GPU {}: Memory {}/{}MB", gpu_info.index, gpu_info.memory.used, gpu_info.memory.total);
+                    readings.gpus.push(gpu_info);
+                }
+                Err(e) => {
+                    eprintln!("Failed to parse GPU line {}: {}", i, e);
+                }
             }
         }
 
@@ -194,10 +202,18 @@ impl NvidiaSmiMonitor {
         let pstate = field_iter.next().map_or("", |v| v).to_string();
         
         // Memory fields
-        let memory_total = parse_optional_u32(field_iter.next().map_or("0", |v| v)).unwrap_or(0) as u64;
-        let memory_used = parse_optional_u32(field_iter.next().map_or("0", |v| v)).unwrap_or(0) as u64;
-        let memory_free = parse_optional_u32(field_iter.next().map_or("0", |v| v)).unwrap_or(0) as u64;
-        let memory_reserved = parse_optional_u32(field_iter.next().map_or("0", |v| v)).unwrap_or(0) as u64;
+        let memory_total_field = field_iter.next().map_or("0", |v| v);
+        let memory_used_field = field_iter.next().map_or("0", |v| v);
+        let memory_free_field = field_iter.next().map_or("0", |v| v);
+        let memory_reserved_field = field_iter.next().map_or("0", |v| v);
+        
+        eprintln!("Memory fields: total='{}', used='{}', free='{}', reserved='{}'", 
+                  memory_total_field, memory_used_field, memory_free_field, memory_reserved_field);
+        
+        let memory_total = parse_optional_u32(memory_total_field).unwrap_or(0) as u64;
+        let memory_used = parse_optional_u32(memory_used_field).unwrap_or(0) as u64;
+        let memory_free = parse_optional_u32(memory_free_field).unwrap_or(0) as u64;
+        let memory_reserved = parse_optional_u32(memory_reserved_field).unwrap_or(0) as u64;
         
         // Utilization fields
         let gpu_util = parse_optional_u32(field_iter.next().map_or("0", |v| v)).unwrap_or(0);
