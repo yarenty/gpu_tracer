@@ -350,36 +350,49 @@ impl NvidiaSmiMonitor {
 
     /// Get GPU processes
     fn get_gpu_processes(&self) -> Result<Vec<GpuProcess>, String> {
+        // Use --query-apps to get all GPU processes (both graphics and compute)
         let output = self.execute_command(&[
-            "--query-compute-apps=pid,process_name,gpu_uuid,used_memory",
+            "--query-apps=pid,process_name,gpu_uuid,used_memory",
             "--format=csv,noheader,nounits"
         ])?;
 
         let mut processes = Vec::new();
         let lines: Vec<&str> = output.trim().lines().collect();
         
-        for line in lines {
+        log::trace!("GPU processes query returned {} lines", lines.len());
+        for (i, line) in lines.iter().enumerate() {
+            log::trace!("Process line {}: {}", i, line);
             if line.is_empty() {
                 continue;
             }
             
             let fields: Vec<&str> = line.split(',').collect();
+            log::trace!("Process fields: {:?}", fields);
             if fields.len() >= 4 {
                 if let (Ok(pid), Ok(used_memory)) = (
-                    fields[0].parse::<u32>(),
-                    fields[3].parse::<u64>()
+                    fields[0].trim().parse::<u32>(),
+                    fields[3].trim().parse::<u64>()
                 ) {
-                    processes.push(GpuProcess {
+                    let process = GpuProcess {
                         pid,
-                        process_name: fields[1].to_string(),
-                        gpu_uuid: fields[2].to_string(),
+                        process_name: fields[1].trim().to_string(),
+                        gpu_uuid: fields[2].trim().to_string(),
                         used_memory,
                         gpu_index: 0, // Will be updated later
-                    });
+                    };
+                    log::debug!("Found GPU process: PID {}, Name: {}, Memory: {}MB", 
+                               process.pid, process.process_name, process.used_memory);
+                    processes.push(process);
+                } else {
+                    log::warn!("Failed to parse process line {}: pid='{}', memory='{}'", 
+                              i, fields[0], fields[3]);
                 }
+            } else {
+                log::warn!("Invalid process line {}: expected 4 fields, got {}", i, fields.len());
             }
         }
 
+        log::debug!("Found {} GPU processes", processes.len());
         Ok(processes)
     }
 
